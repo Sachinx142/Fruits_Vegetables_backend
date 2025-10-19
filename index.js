@@ -3,9 +3,6 @@ const app = express();
 const connectDB = require("./config/db")
 const cors = require("cors")
 
-
-
-     
 const blogRoutes = require("./routes/blogRoutes")
 const userRoutes = require("./routes/userRoutes")
 const testimonialRoutes = require("./routes/testimonialRoutes")
