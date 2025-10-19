@@ -43,6 +43,8 @@ app.use("/api/wishlist",wishlistRoutes)
 app.use('/api/payment',paymentRoutes)
     
 connectDB();
+  
+      
 
 
 const PORT = process.env.PORT || 8000;
