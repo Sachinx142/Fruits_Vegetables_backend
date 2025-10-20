@@ -119,9 +119,9 @@ const userVerifyOtp = async (req, res) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { name, email, phone } = req.body;
+    const { fullName, email, phone } = req.body;
 
-    if (!name || !email || !phone) {
+    if (!fullName || !email || !phone) {
       return res.json({ message: "All fields are required", status: 0 });
     }
 
@@ -160,7 +160,7 @@ const registerUser = async (req, res) => {
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
 
     const user = await userModel.create({
-      name,
+      fullName,
       email,
       phone,
       emailOtp,

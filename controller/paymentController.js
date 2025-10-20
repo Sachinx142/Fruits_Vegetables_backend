@@ -68,7 +68,18 @@ const saveOrder = async (req, res) => {
   }
 };
 
+const getOrders = async (req, res) => {
+  try {
+    const orders = await OrderModel.find().sort({ createdAt: -1 });
+    return res.status(200).json({ message: "Orders fetched successfully", status: 1, data: orders });
+  } catch (error) {
+    console.error("Get orders error:", error);
+    return res.status(500).json({ message: "Failed to fetch orders", status: 0 });
+  }
+};
+
 module.exports = {
     createRazorpayOrder,
-    saveOrder
+    saveOrder,
+    getOrders
 }
