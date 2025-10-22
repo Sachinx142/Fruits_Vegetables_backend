@@ -13,7 +13,7 @@ const staffRoutes = require("./routes/staffRoutes")
 const menuRoutes = require("./routes/menuRoutes")
 const roleRoutes = require("./routes/roleRoutes")
 const cartRoutes = require("./routes/cartRoutes")
-const paymentRoutes = require("./routes/paymentRoutes")
+const orderRoutes = require("./routes/orderRoutes")
 const wishlistRoutes = require("./routes/wishlistRoutes")
 
 require("dotenv").config()
@@ -37,7 +37,7 @@ app.use('/api/menu',menuRoutes)
 app.use('/api/roles',roleRoutes)
 app.use('/api/cart',cartRoutes)
 app.use("/api/wishlist",wishlistRoutes)
-app.use('/api/payment',paymentRoutes)
+app.use('/api/order',orderRoutes)
     
 connectDB();
   

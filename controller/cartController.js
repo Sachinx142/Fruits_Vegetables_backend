@@ -2,10 +2,9 @@ const cartModel = require("../models/cartModel");
 const productModel = require("../models/productModel");
 const Base_URL = require("../config/baseUrl");
 
-
 const addToCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const { productId, qty } = req.body;
 
@@ -19,6 +18,7 @@ const addToCart = async (req, res) => {
 
     const product = await productModel.findById(productId);
     if (!product) return res.json({ message: "Product not found", status: 0 });
+
 
     let cartItem = await cartModel.findOne({
       user: userId,
@@ -55,34 +55,36 @@ const getCart = async (req, res) => {
       .find({ user: userId })
       .populate({
         path: "product",
-        select: "productName finalPrice productImage stock categoryId subcategoryId",
+        select:
+          "productName finalPrice productImage stock categoryId subcategoryId",
         populate: [
           { path: "categoryId", select: "categoryName" },
           { path: "subcategoryId", select: "subCategoryName" },
         ],
       });
 
-      if(!data || data.length === 0){
-         return res.json({message:"Unable to Cart Data",status:0})
-      }
+    if (!data || data.length === 0) {
+      return res.json({ message: "Cart is empty", status: 0 });
+    }
 
-      data?.map((ele)=>{
-         if (ele.product && ele.product.productImage) {
+  
+    data.map(ele => {
+      if (ele.product && ele.product.productImage) {
         ele.product.productImage = `${Base_URL}/uploads/${ele.product.productImage}`;
       }
-      return ele;
-      })
+    });
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 1,
       message: "Cart fetched successfully",
       data: data,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: 0, message: "Server error" });
+    return res.status(500).json({ status: 0, message: "Server error" });
   }
 };
+
 
 const updateCart = async (req, res) => {
   try {
