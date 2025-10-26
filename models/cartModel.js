@@ -23,7 +23,7 @@ const CartSchema = new mongoose.Schema({
     },
     status:{
         type:Number,
-        default:null
+        default:0
     }
 })
 

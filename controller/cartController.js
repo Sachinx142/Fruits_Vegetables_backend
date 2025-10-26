@@ -1,6 +1,8 @@
 const cartModel = require("../models/cartModel");
 const productModel = require("../models/productModel");
+const orderModel = require("../models/orderModel");
 const Base_URL = require("../config/baseUrl");
+const mongoose = require("mongoose");
 
 const addToCart = async (req, res) => {
   try {
@@ -22,7 +24,8 @@ const addToCart = async (req, res) => {
 
     let cartItem = await cartModel.findOne({
       user: userId,
-      product: productId,
+      product:productId,
+      status:1
     });
 
     if (cartItem) {
@@ -46,13 +49,12 @@ const addToCart = async (req, res) => {
     res.status(500).json({ status: 0, message: "Server error" });
   }
 };
-
 const getCart = async (req, res) => {
   try {
     const userId = req.user._id;
 
     let data = await cartModel
-      .find({ user: userId })
+      .find({ user: userId,status:1 })
       .populate({
         path: "product",
         select:
@@ -66,8 +68,8 @@ const getCart = async (req, res) => {
     if (!data || data.length === 0) {
       return res.json({ message: "Cart is empty", status: 0 });
     }
+    
 
-  
     data.map(ele => {
       if (ele.product && ele.product.productImage) {
         ele.product.productImage = `${Base_URL}/uploads/${ele.product.productImage}`;
@@ -84,11 +86,9 @@ const getCart = async (req, res) => {
     return res.status(500).json({ status: 0, message: "Server error" });
   }
 };
-
-
-const updateCart = async (req, res) => {
+const updateCart = async (req, res) => { 
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const { productId, qty } = req.body;
 
     if (!productId || qty === undefined || qty < 0) {
@@ -100,7 +100,7 @@ const updateCart = async (req, res) => {
       return res.json({ status: 0, message: "Product not found" });
     }
 
-    let cartItem = await cartModel.findOne({ user: userId, product: productId });
+    let cartItem = await cartModel.findOne({ user: userId, product:productId ,status:1});
 
     if (cartItem) {
       // Update quantity & total
@@ -124,17 +124,16 @@ const updateCart = async (req, res) => {
     return res.status(500).json({ status: 0, message: "Server error" });
   }
 };
-
 const deleteCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const { productId } = req.body;
 
     if (!productId) {
       return res.json({ status: 0, message: "Product Id is required" });
     }
 
-    let cartItem = await cartModel.findOne({ user: userId, product: productId });
+    let cartItem = await cartModel.findOne({ user: userId, product:productId, status:1 });
 
     if (!cartItem) {
       return res.json({ status: 0, message: "Item not found in cart" });
@@ -148,12 +147,6 @@ const deleteCart = async (req, res) => {
     return res.status(500).json({ status: 0, message: "Server error" });
   }
 };
-
-
-
-
-
-
 
 module.exports = {
   addToCart,

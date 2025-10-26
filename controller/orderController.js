@@ -1,7 +1,8 @@
 const Razorpay = require("razorpay");
 const OrderModel = require("../models/orderModel");
-const  mongoose = require("mongoose");
+const cartModel = require("../models/cartModel");
 const Base_URL = require("../config/baseUrl")
+const { generateCustomOrderId, generateProductItemId } = require("../utils/generateId");
 
 const createRazorpayOrder = async (req, res) => {
   try {
@@ -44,49 +45,22 @@ const createRazorpayOrder = async (req, res) => {
       razorpay_signature,
     } = req.body;
 
-    // Basic validation
     if (!userName || !email || !phone || !fullAddress || !paymentMode || !totalAmount) {
-      return res.json({ message: "All fields are required", status: 0 });
+      return res.status(400).json({ message: "All fields are required", status: 0 });
     }
 
-    // Function to generate 16-character order ID
-    function generateCustomOrderId({ userName, email, phone, fullAddress }) {
-      const prefix = "ORD";
-      const year = new Date().getFullYear();
-
-      // First 2 letters of username
-      const unamePart = (userName || "XX").substring(0, 2).toUpperCase();
-
-      // First 2 letters of email username (before @)
-      let emailPart = "XX";
-      if (email && email.includes("@")) {
-        emailPart = email.split("@")[0].substring(0, 2).toUpperCase();
-      }
-
-      // Last 4 digits of phone
-      const phonePart = (phone || "0000").slice(-4);
-
-      // First 2 letters of fullAddress
-      const addressPart = (fullAddress || "XX").substring(0, 2).toUpperCase();
-
-      // Combine parts
-      let orderId = `${prefix}${year}${unamePart}${emailPart}${phonePart}${addressPart}`;
-
-      // Pad with random letters/numbers if less than 16 chars
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      while (orderId.length < 16) {
-        orderId += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-
-      return orderId; // exactly 16 characters
-    }
+    // Assign unique productItemId to each product
+    const productsWithIds = products.map((p) => ({
+      ...p,
+      productItemId: generateProductItemId(),
+    }));
 
     // Create new order
     const newOrder = new OrderModel({
-      userId:userId,
+      userId,
       orderId: generateCustomOrderId({ userName, email, phone, fullAddress }),
       userName,
-      products,
+      products: productsWithIds,
       email,
       phone,
       fullAddress,
@@ -103,13 +77,16 @@ const createRazorpayOrder = async (req, res) => {
 
     await newOrder.save();
 
+    // Remove only ordered products from cart
+    const orderedProductIds = products.map((p) => p.productId);
+    await cartModel.deleteMany({ user: userId, product: { $in: orderedProductIds }, status: 1 });
+
     res.status(201).json({ message: "Order saved successfully", order: newOrder, status: 1 });
   } catch (error) {
     console.error("Save order error:", error);
     res.status(500).json({ error: "Failed to save order", status: 0 });
   }
 };
-
 // Admin see all orders
 const getallOrdersByAdmin = async (req, res) => {
   try {
@@ -123,7 +100,6 @@ const getallOrdersByAdmin = async (req, res) => {
     return res.status(500).json({ message: "Failed to fetch orders", status: 0 });
   }
 };
-
 // Get all orders by user ID (optional)
 const getOrdersByUserId = async (req, res) => {
   try {
