@@ -15,27 +15,39 @@ const createRazorpayOrder = async (req, res) => {
       key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
 
-    const { userId, products, orderId, amount } = req.body;
+    let { userId, products, orderId, amount } = req.body;
 
     const options = {
-      amount: amount * 100,
+      amount: Math.round(amount * 100), 
       userId: userId,
       products,
       currency: "INR",
       receipt: orderId || `order_rcptid_${Date.now()}`,
+         notes: {
+        userId: userId || "guest",
+        productsCount: products?.length || 0,
+      },
     };
 
     const order = await instance.orders.create(options);
-    res.status(200).json(order);
+    return res.status(200).json({
+  status: 1,
+  message: "Razorpay order created successfully",
+  data: order
+});
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Razorpay order creation failed" });
+     console.error("❌ Razorpay order error:", error);
+   return res.status(400).json({
+  status: 0,
+  message: error.error?.description || "Razorpay order creation failed"
+});
   }
 };
 
 const saveOrder = async (req, res) => {
   try {
-    const {
+    let {
       userId,
       userName,
       products,
@@ -58,9 +70,20 @@ const saveOrder = async (req, res) => {
       !totalAmount
     ) {
       return res
-        .status(400)
         .json({ message: "All fields are required", status: 0 });
     }
+
+    // UnderStand to payment Method
+   // Understand payment method
+let paymentStatus = "Pending";
+
+if (paymentMode === "cod") {
+  paymentStatus = "Pending";
+} else if (razorpay_payment_id && razorpay_order_id && razorpay_signature) {
+  paymentStatus = "Paid";
+} else {
+  paymentStatus = "Failed";
+}
 
     // Assign unique productItemId to each product
     const productsWithIds = products.map((p) => ({
@@ -79,7 +102,7 @@ const saveOrder = async (req, res) => {
       fullAddress,
       paymentMethod: paymentMode,
       amount: totalAmount,
-      paymentStatus: paymentMode === "cod" ? "Pending" : "Paid",
+      paymentStatus,
       orderStatus: "Pending",
       orderDate: new Date(),
       razorpay_payment_id: razorpay_payment_id || null,
@@ -98,7 +121,7 @@ const saveOrder = async (req, res) => {
       status: 1,
     });
 
-    res.status(201).json({
+    res.status(200).json({
       message: "Order saved successfully",
       order: newOrder,
       status: 1,
@@ -213,13 +236,16 @@ const updateOrderDetails = async (req, res) => {
       return res.json({ message: "Order not found", status: 0 });
     }
 
-    let finalPaymentStatus = paymentStatus;
+    let finalPaymentStatus = paymentStatus || order.paymentStatus;;
 
-    if (order.paymentMethod === "cod") {
+    if (order.paymentMethod?.toLowerCase() === "cod") {
       if (orderStatus === "Delivered") {
         finalPaymentStatus = "Paid";
-      } else {
-        finalPaymentStatus = "Pending";
+      } else  if(orderStatus === "Cancelled"){
+          finalPaymentStatus = "Failed";
+      }
+      else{
+         finalPaymentStatus = "Pending";
       }
     }
 
