@@ -18,12 +18,12 @@ const createRazorpayOrder = async (req, res) => {
     let { userId, products, orderId, amount } = req.body;
 
     const options = {
-      amount: Math.round(amount * 100), 
+      amount: Math.round(amount * 100),
       userId: userId,
       products,
       currency: "INR",
       receipt: orderId || `order_rcptid_${Date.now()}`,
-         notes: {
+      notes: {
         userId: userId || "guest",
         productsCount: products?.length || 0,
       },
@@ -31,17 +31,16 @@ const createRazorpayOrder = async (req, res) => {
 
     const order = await instance.orders.create(options);
     return res.status(200).json({
-  status: 1,
-  message: "Razorpay order created successfully",
-  data: order
-});
-
+      status: 1,
+      message: "Razorpay order created successfully",
+      data: order,
+    });
   } catch (error) {
-     console.error("❌ Razorpay order error:", error);
-   return res.status(400).json({
-  status: 0,
-  message: error.error?.description || "Razorpay order creation failed"
-});
+    console.error("❌ Razorpay order error:", error);
+    return res.status(400).json({
+      status: 0,
+      message: error.error?.description || "Razorpay order creation failed",
+    });
   }
 };
 
@@ -69,35 +68,37 @@ const saveOrder = async (req, res) => {
       !paymentMode ||
       !totalAmount
     ) {
-      return res
-        .json({ message: "All fields are required", status: 0 });
+      return res.json({ message: "All fields are required", status: 0 });
     }
 
-   // Understand payment and order Method
+    // Understand payment and order Method
     let finalPaymentStatus = "Pending";
     let finalOrderStatus = "Pending";
 
-if (paymentMode === "cod") {
-  finalPaymentStatus = "Pending";
-  finalOrderStatus = "Pending";
-} else if (razorpay_payment_id && razorpay_order_id && razorpay_signature) {
-  finalPaymentStatus = "Paid";
-  finalOrderStatus = "Processing";
-} else {
-  finalPaymentStatus = "Failed";
-  finalOrderStatus = "Cancelled";
-}
- 
-   let existingOrder = null;
-   if(razorpay_order_id){
-    existingOrder = await OrderModel.findOne({razorpay_order_id})
-   }
+    if (paymentMode === "cod") {
+      finalPaymentStatus = "Pending";
+      finalOrderStatus = "Pending";
+    } else if (razorpay_payment_id && razorpay_order_id && razorpay_signature) {
+      finalPaymentStatus = "Paid";
+      finalOrderStatus = "Processing";
+    } else {
+      finalPaymentStatus = "Failed";
+      finalOrderStatus = "Cancelled";
+    }
 
-   if(existingOrder){
-      existingOrder.paymentStatus = finalPaymentStatus
-      existingOrder.orderStatus = finalOrderStatus
-      existingOrder.razorpay_order_id = razorpay_order_id || existingOrder.razorpay_payment_id;
-      existingOrder.razorpay_signature = razorpay_signature || existingOrder.razorpay_signature;
+    let existingOrder = null;
+    if (razorpay_order_id) {
+      existingOrder = await OrderModel.findOne({ razorpay_order_id });
+    }
+
+    if (existingOrder) {
+      existingOrder.paymentStatus = finalPaymentStatus;
+      existingOrder.orderStatus = finalOrderStatus;
+      existingOrder.razorpay_order_id =
+        razorpay_order_id || existingOrder.razorpay_order_id;
+      existingOrder.razorpay_payment_id =
+        razorpay_payment_id || existingOrder.razorpay_payment_id;
+
       await existingOrder.save();
       return res.json({
         message:
@@ -107,8 +108,7 @@ if (paymentMode === "cod") {
         order: existingOrder,
         status: 1,
       });
-   }
-  
+    }
 
     // Assign unique productItemId to each product
     const productsWithIds = products.map((p) => ({
@@ -127,8 +127,8 @@ if (paymentMode === "cod") {
       fullAddress,
       paymentMethod: paymentMode,
       amount: totalAmount,
-      paymentStatus:finalPaymentStatus,
-      orderStatus:finalOrderStatus,
+      paymentStatus: finalPaymentStatus,
+      orderStatus: finalOrderStatus,
       orderDate: new Date(),
       razorpay_payment_id: razorpay_payment_id || null,
       razorpay_order_id: razorpay_order_id || null,
@@ -140,14 +140,17 @@ if (paymentMode === "cod") {
 
     // Remove only ordered products from cart
     const orderedProductIds = products.map((p) => p.productId);
-    await cartModel.deleteMany({
-      user: userId,
-      product: { $in: orderedProductIds },
-      status: 1,
-    });
+    if (finalPaymentStatus !== "Failed") {
+      await cartModel.deleteMany({
+        user: userId,
+        product: { $in: orderedProductIds },
+        status: 1,
+      });
+    }
+
 
     res.status(200).json({
-       message:
+      message:
         finalPaymentStatus === "Failed"
           ? "❌ Payment failed — order saved as Failed."
           : finalPaymentStatus === "Paid"
@@ -266,16 +269,15 @@ const updateOrderDetails = async (req, res) => {
       return res.json({ message: "Order not found", status: 0 });
     }
 
-    let finalPaymentStatus = paymentStatus || order.paymentStatus;;
+    let finalPaymentStatus = paymentStatus || order.paymentStatus;
 
     if (order.paymentMethod?.toLowerCase() === "cod") {
       if (orderStatus === "Delivered") {
         finalPaymentStatus = "Paid";
-      } else  if(orderStatus === "Cancelled"){
-          finalPaymentStatus = "Failed";
-      }
-      else{
-         finalPaymentStatus = "Pending";
+      } else if (orderStatus === "Cancelled") {
+        finalPaymentStatus = "Failed";
+      } else {
+        finalPaymentStatus = "Pending";
       }
     }
 
