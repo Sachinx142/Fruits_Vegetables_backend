@@ -73,17 +73,42 @@ const saveOrder = async (req, res) => {
         .json({ message: "All fields are required", status: 0 });
     }
 
-    // UnderStand to payment Method
-   // Understand payment method
-let paymentStatus = "Pending";
+   // Understand payment and order Method
+    let finalPaymentStatus = "Pending";
+    let finalOrderStatus = "Pending";
 
 if (paymentMode === "cod") {
-  paymentStatus = "Pending";
+  finalPaymentStatus = "Pending";
+  finalOrderStatus = "Pending";
 } else if (razorpay_payment_id && razorpay_order_id && razorpay_signature) {
-  paymentStatus = "Paid";
+  finalPaymentStatus = "Paid";
+  finalOrderStatus = "Processing";
 } else {
-  paymentStatus = "Failed";
+  finalPaymentStatus = "Failed";
+  finalOrderStatus = "Cancelled";
 }
+ 
+   let existingOrder = null;
+   if(razorpay_order_id){
+    existingOrder = await OrderModel.findOne({razorpay_order_id})
+   }
+
+   if(existingOrder){
+      existingOrder.paymentStatus = finalPaymentStatus
+      existingOrder.orderStatus = finalOrderStatus
+      existingOrder.razorpay_order_id = razorpay_order_id || existingOrder.razorpay_payment_id;
+      existingOrder.razorpay_signature = razorpay_signature || existingOrder.razorpay_signature;
+      await existingOrder.save();
+      return res.json({
+        message:
+          finalPaymentStatus === "Paid"
+            ? "✅ Payment successful — existing order updated to Paid."
+            : "⚠️ Order already exists — status updated.",
+        order: existingOrder,
+        status: 1,
+      });
+   }
+  
 
     // Assign unique productItemId to each product
     const productsWithIds = products.map((p) => ({
@@ -102,8 +127,8 @@ if (paymentMode === "cod") {
       fullAddress,
       paymentMethod: paymentMode,
       amount: totalAmount,
-      paymentStatus,
-      orderStatus: "Pending",
+      paymentStatus:finalPaymentStatus,
+      orderStatus:finalOrderStatus,
       orderDate: new Date(),
       razorpay_payment_id: razorpay_payment_id || null,
       razorpay_order_id: razorpay_order_id || null,
@@ -122,7 +147,12 @@ if (paymentMode === "cod") {
     });
 
     res.status(200).json({
-      message: "Order saved successfully",
+       message:
+        finalPaymentStatus === "Failed"
+          ? "❌ Payment failed — order saved as Failed."
+          : finalPaymentStatus === "Paid"
+          ? "✅ Payment successful — order saved."
+          : "🕒 Order placed — pending payment.",
       order: newOrder,
       status: 1,
     });
